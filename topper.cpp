@@ -69,71 +69,88 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
     return TRUE;
 }
 
-COORD GetCurrentCursorCoords() {
+COORD GetCursorCoords() {
 
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     CONSOLE_SCREEN_BUFFER_INFO csbi;
     GetConsoleScreenBufferInfo(hConsole, &csbi);
-
-    return { csbi.dwCursorPosition.X, csbi.dwCursorPosition.Y };
+    return csbi.dwCursorPosition;
 }
 
-void DrawMenu(const std::vector<WindowInfo>&wins, int selected, COORD cursorPos) {
+void DrawMenu(const std::vector<WindowInfo>&wins, int selected, COORD startPos, BOOL makeSpace) {
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     CONSOLE_SCREEN_BUFFER_INFO csbi;
     GetConsoleScreenBufferInfo(hConsole, &csbi);
 
-    // remember old
+    // Remember old attributes
     WORD oldAttr = csbi.wAttributes;
+
     DWORD written;
-    COORD home = { cursorPos.X, cursorPos.Y };
+    // For each window to be printed as a choice, clear out some space
+    if (makeSpace) {
+        for (int i = 0; i < (int)wins.size(); i++) {
+            COORD linePos = { 0, SHORT(startPos.Y + i) }; // start from the line under the current line
+            FillConsoleOutputCharacterW(hConsole, L' ', csbi.dwSize.X, linePos, &written);
+        }
+    }
 
-    // if (csbi.dwSize.Y - (cursorPos.Y + 1) < wins.size() + 1) {
-    //     home = { cursorPos.X, csbi.dwSize.Y - static_cast<SHORT>(wins.size() + 1) };
-    //     // Scroll down by (wins.size() + 1) amount so that the tui doesn't screw with the previous console output
-    //     for (int i = 0; i < wins.size() + 2; i++) {
-    //         wprintf(L"\n");
-    //     }
-    // } else {
-    //     home = { cursorPos.X, cursorPos.Y + 1};
-    // }
+    // Print the choices
+    for (int i = 0; i < (int)wins.size() ; i++) {
+        COORD linePos;
+        linePos = { 0, SHORT(startPos.Y + i) };
+        SetConsoleCursorPosition(hConsole, linePos);
 
-    SetConsoleCursorPosition(hConsole, home);
-    FillConsoleOutputCharacter(hConsole, ' ', (csbi.dwSize.X) * (csbi.dwSize.Y - (wins.size() + 1)), home, &written);
-
-    // TODO: what I really need: refresh the current interactive part of the terminal
-    for (int i = 0; i < (int)wins.size(); i++) {
+        // Highlight if selected
         if (i == selected) {
             SetConsoleTextAttribute(hConsole, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED | BACKGROUND_BLUE);
         }
-        wprintf(L" %2d: %s\n", i+1, wins[i].title.c_str());
-        SetConsoleTextAttribute(hConsole, oldAttr);
-    }
 
+        // Print a choice
+        wprintf(L" %2d: %s  ", i+1, wins[i].title.c_str());
+
+        // Restore text attributes
+        SetConsoleTextAttribute(hConsole, oldAttr);
+        wprintf(L"\n");
+    }
+    wprintf(L"\n"); // add a newline at end of menu
 }
 
 int PickWindow(const std::vector<WindowInfo>&wins) {
     if (wins.empty()) return 1;
 
-    int selected = 0;
-    COORD cursorCoord = GetCurrentCursorCoords();
-
-    // Modify initial cursor position
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     CONSOLE_SCREEN_BUFFER_INFO csbi;
     GetConsoleScreenBufferInfo(hConsole, &csbi);
-    COORD targetCoord;
-    if (csbi.dwSize.Y - (csbi.dwCursorPosition.Y + 1) < wins.size() + 1) {
-        targetCoord.Y = csbi.dwSize.Y - static_cast<SHORT>(wins.size() + 1);
-        // TODO: Scroll down by (wins.size() + 1) amount so that the tui doesn't screw with the previous console output
-        // for (int i = 0; i < wins.size() + 1; i++) {
-        //     wprintf(L"\n");
-        // }
+
+    COORD originalPos = GetCursorCoords();
+    COORD menuStartPos;
+
+    int requiredLines = wins.size();
+    int availableLines = csbi.dwSize.Y - originalPos.Y - 1;
+
+    if (availableLines < requiredLines) {
+        // make space with empty lines
+        int linesToScroll = requiredLines - availableLines + 1; // +1 bc we add a new line as part of the menu
+        for (int i = 0; i < linesToScroll; i++) {
+            wprintf(L"\n");
+        }
+
+        // update cursor position (move backwards (go -ve))
+        GetConsoleScreenBufferInfo(hConsole, &csbi);
+        menuStartPos.X = 0;
+        menuStartPos.Y = csbi.dwCursorPosition.Y - linesToScroll;
+
+        // no negative lines
+        if (menuStartPos.Y < 0) {
+            menuStartPos.Y = 0;
+        }
     } else {
-        targetCoord.Y = csbi.dwCursorPosition.Y + 1;
+        menuStartPos.X = 0;
+        menuStartPos.Y = originalPos.Y;
     }
 
-    DrawMenu(wins, selected, targetCoord);
+    int selected = 0;
+    DrawMenu(wins, selected, menuStartPos, true);
 
     while (1) {
         int c = _getch();
@@ -142,11 +159,11 @@ int PickWindow(const std::vector<WindowInfo>&wins) {
             switch (c) {
             case 72: // up
                 selected = (selected + wins.size() - 1) % wins.size();
-                DrawMenu(wins, selected, targetCoord);
+                DrawMenu(wins, selected, menuStartPos, false);
                 break;
             case 80: // down
                 selected = (selected + 1) % wins.size();
-                DrawMenu(wins, selected, targetCoord);
+                DrawMenu(wins, selected, menuStartPos, false);
                 break;
             }
         } else if (c == 13) { // enter
@@ -161,24 +178,22 @@ int PickWindow(const std::vector<WindowInfo>&wins) {
 
 int wmain(int argc, wchar_t* argv[]) {
 
-    wprintf(L"----------------------------------------------------------------------\n"); // toggle window on top help
+    std::wstring twotCommand = L"--toggle-wot";
+
+    wprintf(L"----------------------------------------------------------------------\n");
     if (argc < 2 || argv[1] == L"--help") {
-        wprintf(L"Usage:\n  %ls --toggle-wot\n", argv[0]); // toggle window on top help
+        // toggle window on top help
+        wprintf(L"Usage:\n  %ls %ls\n", argv[0], twotCommand.c_str()); // toggle window on top help
         return 1;
     }
 
     std::wstring command = argv[1];
 
-    if (command == L"--toggle-wot") {
+    if (command == twotCommand) {
         std::vector<WindowInfo> windows;
         EnumWindows(EnumWindowsProc, reinterpret_cast<LPARAM>(&windows));
         int count = 0;
-        for (auto& w : windows) {
-            count++;
-            wprintf(L"%d -> Window: %ls\n", count, w.title.c_str()); // add " | ONTOP=T/F" indication to the right of the string
-        }
 
-        // tui logic here??
         int idx = PickWindow(windows);
         if (idx < 0) {
             return 0;
