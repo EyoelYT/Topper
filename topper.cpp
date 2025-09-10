@@ -10,6 +10,11 @@ struct WindowInfo {
     std::wstring title;
 };
 
+std::wstring isTopMost(HWND hWnd) {
+    LONG isTopMost = (GetWindowLongW(hWnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
+    if (isTopMost) { return L"TOPMOST"; } else { return L"NOT TOPMOST"; }
+}
+
 BOOL IsAltTabWindow(HWND hwnd) {
     HWND hwndWalk = GetAncestor(hwnd, GA_ROOTOWNER);
 
@@ -106,7 +111,7 @@ void DrawMenu(const std::vector<WindowInfo>&wins, int selected, COORD startPos, 
         }
 
         // Print a choice
-        wprintf(L" %2d: %s  ", i+1, wins[i].title.c_str());
+        wprintf(L" %11s : %s  ", isTopMost(wins[i].hWnd).c_str(), wins[i].title.c_str());
 
         // Restore text attributes
         SetConsoleTextAttribute(hConsole, oldAttr);
@@ -167,10 +172,9 @@ int PickWindow(const std::vector<WindowInfo>&wins) {
                 break;
             }
         } else if (c == 13) { // enter
-            wprintf(L"Selected %d\n", selected + 1);
             return selected;
         } else if (c == 27) { // esc
-            wprintf(L"No selection\n");
+            wprintf(L"Exit\n");
             return -1;
         }
     }
@@ -178,7 +182,7 @@ int PickWindow(const std::vector<WindowInfo>&wins) {
 
 int wmain(int argc, wchar_t* argv[]) {
 
-    std::wstring twotCommand = L"--toggle-wot";
+    std::wstring twotCommand = L"--twot";
 
     wprintf(L"----------------------------------------------------------------------\n");
     if (argc < 2 || argv[1] == L"--help") {
@@ -192,11 +196,24 @@ int wmain(int argc, wchar_t* argv[]) {
     if (command == twotCommand) {
         std::vector<WindowInfo> windows;
         EnumWindows(EnumWindowsProc, reinterpret_cast<LPARAM>(&windows));
-        int count = 0;
 
         int idx = PickWindow(windows);
         if (idx < 0) {
             return 0;
+        }
+
+        WindowInfo selected_window = windows[idx];
+
+        LONG_PTR windowExStyle = GetWindowLongPtr(selected_window.hWnd, GWL_EXSTYLE);
+        BOOL wasTopMost = (windowExStyle & WS_EX_TOPMOST) != 0;
+
+        HWND insertAfter = wasTopMost ? HWND_NOTOPMOST : HWND_TOPMOST;
+        BOOL success = SetWindowPos(selected_window.hWnd, insertAfter, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+
+        if (success && wasTopMost) {
+            wprintf(L"%s is now NOT TOPMOST.\n", selected_window.title.c_str());
+        } else if (success && !wasTopMost) {
+            wprintf(L"%s is now TOPMOST.\n", selected_window.title.c_str());
         }
     }
 
