@@ -226,9 +226,8 @@ std::optional<WindowInfo> PickWindow(const std::vector<WindowInfo>& windows) { /
 
             printf("%c", inputCharacter);
 
-            if (selected >= fuzziedWindows.size()) {
-                selected = fuzziedWindows.size() - 1;
-            }
+            selected = 0;
+
             std::string charBufferAsStr(charBuffer);
             fuzziedWindows = fuzzySearch(charBufferAsStr, windows);
             DrawMenu(fuzziedWindows, selected, menuStartPos, true, totalWindowsNumber);
@@ -270,7 +269,7 @@ int main(int argc, char* argv[]) {
         std::optional<WindowInfo> selectedWindowInfoOptional = PickWindow(windows);
         if (selectedWindowInfoOptional) {
             WindowInfo selectedWindowInfo = selectedWindowInfoOptional.value();
-            printf("\nselected window: %s; WINDOW: \n", selectedWindowInfo.title.c_str());
+            printf("\nSelected window: %s; WINDOW: \n", selectedWindowInfo.title.c_str());
 
             LONG_PTR windowExStyle = GetWindowLongPtr(selectedWindowInfo.hWnd, GWL_EXSTYLE);
             BOOL wasTopMost = (windowExStyle & WS_EX_TOPMOST) != 0;
@@ -284,7 +283,7 @@ int main(int argc, char* argv[]) {
                 printf("%s is now TOPMOST.\n", selectedWindowInfo.title.c_str());
             }
         } else {
-            printf("No selected window\n");
+            printf("\nNo selected window\n");
             return 0;
         }
     }
