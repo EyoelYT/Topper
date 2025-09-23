@@ -4,7 +4,6 @@
 #include <conio.h>
 #include <cstdint>
 #include <dwmapi.h>
-#include <iostream>
 #include <optional>
 #include <stdio.h>
 #include <string>
@@ -105,9 +104,6 @@ void DrawMenu(const std::vector<WindowInfo>& wins, int selected, COORD startPos,
     CONSOLE_SCREEN_BUFFER_INFO csbi;
     GetConsoleScreenBufferInfo(hConsole, &csbi);
 
-    // Remember old attributes
-    WORD oldAttr = csbi.wAttributes;
-
     DWORD written;
     // For each window to be printed as a choice, clear out some space
     if (makeSpace) {
@@ -121,15 +117,11 @@ void DrawMenu(const std::vector<WindowInfo>& wins, int selected, COORD startPos,
         SetConsoleCursorPosition(hConsole, linePos);
 
         // Highlight if selected
-        if (i == selected) {
-            SetConsoleTextAttribute(hConsole, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED | BACKGROUND_BLUE);
-        }
+        if (i == selected)
+            printf("> %11s : %s  ", IsTopMost(wins[i].hWnd).c_str(), wins[i].title.c_str());
+        else
+            printf("  %11s : %s  ", IsTopMost(wins[i].hWnd).c_str(), wins[i].title.c_str());
 
-        // Print a choice
-        printf(" %11s : %s  ", IsTopMost(wins[i].hWnd).c_str(), wins[i].title.c_str());
-
-        // Restore text attributes
-        SetConsoleTextAttribute(hConsole, oldAttr);
         printf("\n");
     }
     SetConsoleCursorPosition(hConsole, { csbi.dwCursorPosition.X, csbi.dwCursorPosition.Y }); // reset cursor position to the input buffer position
