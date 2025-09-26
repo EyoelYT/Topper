@@ -99,20 +99,20 @@ COORD GetCursorCoords() {
     return csbi.dwCursorPosition;
 }
 
-void DrawMenu(const std::vector<WindowInfo>& wins, int selected, COORD startPos, BOOL makeSpace, uint32_t numLines, COORD* inputBufferPosition, BOOL hasInputChars) {
+void DrawMenu(const std::vector<WindowInfo>& wins, int selected, COORD startPos, BOOL makeSpace, uint32_t numLines, COORD& inputBufferPosition, BOOL hasInputChars) {
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     CONSOLE_SCREEN_BUFFER_INFO csbi;
     GetConsoleScreenBufferInfo(hConsole, &csbi);
 
     DWORD written;
-    // For each window to be printed as a choice, clear out some space
+    // For each window to be printed as a choice, overwrite with space
     if (makeSpace) {
         COORD linePos = { 0, SHORT(startPos.Y) }; // start from the line under the current line
         FillConsoleOutputCharacter(hConsole, ' ', csbi.dwSize.X * numLines, linePos, &written);
     }
 
     // Print the choices
-    for (uint32_t i = 0; i < wins.size() ; i++) {
+    for (uint32_t i = 0; i < wins.size(); i++) {
         COORD linePos = { 0, SHORT(startPos.Y + i) };
         SetConsoleCursorPosition(hConsole, linePos);
 
@@ -125,9 +125,9 @@ void DrawMenu(const std::vector<WindowInfo>& wins, int selected, COORD startPos,
         printf("\n");
     }
     if (hasInputChars) {
-      inputBufferPosition->X = 1 + inputBufferPosition->X; // update input position
+      inputBufferPosition.X = 1 + inputBufferPosition.X; // update input position
     }
-    SetConsoleCursorPosition(hConsole, { inputBufferPosition->X, inputBufferPosition->Y }); // reset cursor position to the input buffer position
+    SetConsoleCursorPosition(hConsole, { inputBufferPosition.X, inputBufferPosition.Y }); // reset cursor position to the input buffer position
 }
 
 std::vector<WindowInfo> fuzzySearch(const std::string query, const std::vector<WindowInfo>& windows) {
@@ -186,7 +186,7 @@ std::optional<WindowInfo> PickWindow(const std::vector<WindowInfo>& windows) { /
 
     int selected = 0;
     uint32_t totalWindowsNumber = windows.size();
-    DrawMenu(fuzziedWindows, selected, menuStartPos, TRUE, totalWindowsNumber, &inputBufferPosition, FALSE);
+    DrawMenu(fuzziedWindows, selected, menuStartPos, TRUE, totalWindowsNumber, inputBufferPosition, FALSE);
 
     while (1) {
         int c = _getch();
@@ -195,11 +195,11 @@ std::optional<WindowInfo> PickWindow(const std::vector<WindowInfo>& windows) { /
             switch (c) {
             case 72: // up arrow
                 selected = (selected + fuzziedWindows.size() - 1) % fuzziedWindows.size();
-                DrawMenu(fuzziedWindows, selected, menuStartPos, FALSE, totalWindowsNumber, &inputBufferPosition, FALSE);
+                DrawMenu(fuzziedWindows, selected, menuStartPos, FALSE, totalWindowsNumber, inputBufferPosition, FALSE);
                 break;
             case 80: // down arrow
                 selected = (selected + 1) % fuzziedWindows.size();
-                DrawMenu(fuzziedWindows, selected, menuStartPos, FALSE, totalWindowsNumber, &inputBufferPosition, FALSE);
+                DrawMenu(fuzziedWindows, selected, menuStartPos, FALSE, totalWindowsNumber, inputBufferPosition, FALSE);
                 break;
             }
         } else if (c == 13) { // enter
@@ -228,7 +228,7 @@ std::optional<WindowInfo> PickWindow(const std::vector<WindowInfo>& windows) { /
 
             std::string charBufferAsStr(charBuffer);
             fuzziedWindows = fuzzySearch(charBufferAsStr, windows);
-            DrawMenu(fuzziedWindows, selected, menuStartPos, TRUE, totalWindowsNumber, &inputBufferPosition, TRUE);
+            DrawMenu(fuzziedWindows, selected, menuStartPos, TRUE, totalWindowsNumber, inputBufferPosition, TRUE);
         } else if (c == 8) { // backspace
             charBufferPtr -= 1;
             if (charBufferPtr < 0) {
@@ -246,7 +246,7 @@ std::optional<WindowInfo> PickWindow(const std::vector<WindowInfo>& windows) { /
             selected = 0;
             std::string charBufferAsStr(charBuffer);
             fuzziedWindows = fuzzySearch(charBufferAsStr, windows);
-            DrawMenu(fuzziedWindows, selected, menuStartPos, TRUE, totalWindowsNumber, &inputBufferPosition, FALSE);
+            DrawMenu(fuzziedWindows, selected, menuStartPos, TRUE, totalWindowsNumber, inputBufferPosition, FALSE);
         }
     }
 }
