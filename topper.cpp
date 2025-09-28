@@ -99,7 +99,7 @@ COORD GetCursorCoords() {
     return csbi.dwCursorPosition;
 }
 
-void DrawMenu(const std::vector<WindowInfo>& wins, int selected, COORD startPos, BOOL makeSpace, uint32_t numLines, COORD& inputBufferPosition, BOOL hasInputChars) {
+void DrawMenu(const std::vector<WindowInfo>& wins, int selected, COORD startPos, BOOL makeSpace, uint32_t numLines, COORD& inputBufferPosition, BOOL isInsertingUserInputChars) {
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     CONSOLE_SCREEN_BUFFER_INFO csbi;
     GetConsoleScreenBufferInfo(hConsole, &csbi);
@@ -114,23 +114,31 @@ void DrawMenu(const std::vector<WindowInfo>& wins, int selected, COORD startPos,
     // Print the choices
     for (uint32_t i = 0; i < wins.size(); i++) {
         COORD linePos = { 0, SHORT(startPos.Y + i) };
+
+        std::string selectedLineContent   = "> %11s : %.*s  ";
+        std::string unselectedLineContent = "  %11s : %.*s  ";
+
         SetConsoleCursorPosition(hConsole, linePos);
 
-        // Highlight if selected
-        if (i == selected)
-            printf("> %11s : %s  ", IsTopMost(wins[i].hWnd).c_str(), wins[i].title.c_str());
-        else
-            printf("  %11s : %s  ", IsTopMost(wins[i].hWnd).c_str(), wins[i].title.c_str());
+        // Indicate if selected
+        if (i == selected) {
+            int selectedLineContentWidth = csbi.dwSize.X - selectedLineContent.size() - 3; // -3 bc wierd behavior of console to wrap
+            printf(selectedLineContent.c_str(), IsTopMost(wins[i].hWnd).c_str(), selectedLineContentWidth, wins[i].title.c_str());
+        }
+        else {
+            int unselectedLineContentWidth = csbi.dwSize.X - unselectedLineContent.size() - 3; // -3 bc wierd behavior of console to wrap
+            printf(unselectedLineContent.c_str(), IsTopMost(wins[i].hWnd).c_str(), unselectedLineContentWidth, wins[i].title.c_str());
+        }
 
         printf("\n");
     }
-    if (hasInputChars) {
+    if (isInsertingUserInputChars) {
       inputBufferPosition.X = 1 + inputBufferPosition.X; // update input position
     }
     SetConsoleCursorPosition(hConsole, { inputBufferPosition.X, inputBufferPosition.Y }); // reset cursor position to the input buffer position
 }
 
-std::vector<WindowInfo> fuzzySearch(const std::string query, const std::vector<WindowInfo>& windows) {
+std::vector<WindowInfo> FuzzySearch(const std::string query, const std::vector<WindowInfo>& windows) {
     std::vector<WindowInfo> results;
     for (const WindowInfo window : windows) {
         if (StringToLower(window.title).find(StringToLower(query)) != std::string::npos) {
@@ -140,7 +148,7 @@ std::vector<WindowInfo> fuzzySearch(const std::string query, const std::vector<W
     return results;
 }
 
-std::optional<WindowInfo> PickWindow(const std::vector<WindowInfo>& windows) { // TODO: this should return a WindowInfo
+std::optional<WindowInfo> PickWindow(const std::vector<WindowInfo>& windows) {
     if (windows.empty()) return std::nullopt;
 
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -151,7 +159,7 @@ std::optional<WindowInfo> PickWindow(const std::vector<WindowInfo>& windows) { /
     COORD menuStartPos;
 
     int requiredLines = windows.size();
-    int availableLines = csbi.dwSize.Y - originalPos.Y - 1; // -1 bc of extra newline
+    int availableLines = csbi.dwSize.Y - originalPos.Y - 1; // -1 bc dwSize and dwCoord differ by 1
 
     if (availableLines < requiredLines) {
         // make space with empty lines
@@ -182,7 +190,7 @@ std::optional<WindowInfo> PickWindow(const std::vector<WindowInfo>& windows) { /
     int charBufferPtr = 0;
     char charBuffer[charMaxLength];
 
-    std::vector<WindowInfo> fuzziedWindows = fuzzySearch("", windows);
+    std::vector<WindowInfo> fuzziedWindows = FuzzySearch("", windows);
 
     int selected = 0;
     uint32_t totalWindowsNumber = windows.size();
@@ -227,7 +235,7 @@ std::optional<WindowInfo> PickWindow(const std::vector<WindowInfo>& windows) { /
             selected = 0;
 
             std::string charBufferAsStr(charBuffer);
-            fuzziedWindows = fuzzySearch(charBufferAsStr, windows);
+            fuzziedWindows = FuzzySearch(charBufferAsStr, windows);
             DrawMenu(fuzziedWindows, selected, menuStartPos, TRUE, totalWindowsNumber, inputBufferPosition, TRUE);
         } else if (c == 8) { // backspace
             charBufferPtr -= 1;
@@ -245,7 +253,7 @@ std::optional<WindowInfo> PickWindow(const std::vector<WindowInfo>& windows) { /
 
             selected = 0;
             std::string charBufferAsStr(charBuffer);
-            fuzziedWindows = fuzzySearch(charBufferAsStr, windows);
+            fuzziedWindows = FuzzySearch(charBufferAsStr, windows);
             DrawMenu(fuzziedWindows, selected, menuStartPos, TRUE, totalWindowsNumber, inputBufferPosition, FALSE);
         }
     }
