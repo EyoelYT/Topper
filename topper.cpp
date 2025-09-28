@@ -7,6 +7,7 @@
 #include <optional>
 #include <stdio.h>
 #include <string>
+#include <tuple>
 #include <vector>
 #include <windows.h>
 
@@ -263,6 +264,15 @@ std::optional<WindowInfo> PickWindow(const std::vector<WindowInfo>& windows) {
     }
 }
 
+std::tuple<BOOL, BOOL> SetWindowOnTop(WindowInfo selectedWindowInfo) {
+    LONG_PTR windowExStyle = GetWindowLongPtr(selectedWindowInfo.hWnd, GWL_EXSTYLE);
+    BOOL wasTopMost = (windowExStyle & WS_EX_TOPMOST) != 0;
+
+    HWND insertAfter = wasTopMost ? HWND_NOTOPMOST : HWND_TOPMOST;
+    BOOL success = SetWindowPos(selectedWindowInfo.hWnd, insertAfter, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+    return { success, wasTopMost };
+}
+
 int main(int argc, char* argv[]) {
 
     std::string twotCommand = "--twot";
@@ -276,18 +286,14 @@ int main(int argc, char* argv[]) {
         std::optional<WindowInfo> selectedWindowInfoOptional = PickWindow(windows);
         if (selectedWindowInfoOptional) {
             WindowInfo selectedWindowInfo = selectedWindowInfoOptional.value();
-            printf("\nSelected window: %s\n WINDOW: \n", selectedWindowInfo.title.c_str());
+            printf("\nSelected window: %s.\n", selectedWindowInfo.title.c_str());
 
-            LONG_PTR windowExStyle = GetWindowLongPtr(selectedWindowInfo.hWnd, GWL_EXSTYLE);
-            BOOL wasTopMost = (windowExStyle & WS_EX_TOPMOST) != 0;
-
-            HWND insertAfter = wasTopMost ? HWND_NOTOPMOST : HWND_TOPMOST;
-            BOOL success = SetWindowPos(selectedWindowInfo.hWnd, insertAfter, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+            auto [success, wasTopMost] = SetWindowOnTop(selectedWindowInfo);
 
             if (success && wasTopMost) {
-                printf("%s is now NOT TOPMOST.\n", selectedWindowInfo.title.c_str());
+                printf("WINDOW: \"%s\" is now NOT TOPMOST.\n", selectedWindowInfo.title.c_str());
             } else if (success && !wasTopMost) {
-                printf("%s is now TOPMOST.\n", selectedWindowInfo.title.c_str());
+                printf("WINDOW: \"%s\" is now TOPMOST.\n", selectedWindowInfo.title.c_str());
             }
         } else {
             printf("\nNo selected window\n");
