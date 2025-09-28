@@ -238,7 +238,7 @@ std::optional<WindowInfo> PickWindow(const std::vector<WindowInfo>& windows) {
 
             selected = 0;
 
-            std::string charBufferAsStr(charBuffer);
+            std::string charBufferAsStr = charBuffer;
             fuzziedWindows = FuzzySearch(charBufferAsStr, windows);
             DrawMenu(fuzziedWindows, selected, menuStartPos, TRUE, totalWindowsNumber, inputBufferPosition, TRUE);
         } else if (c == 8) { // backspace
@@ -256,7 +256,7 @@ std::optional<WindowInfo> PickWindow(const std::vector<WindowInfo>& windows) {
             printf("\b \b"); // delete previous character
 
             selected = 0;
-            std::string charBufferAsStr(charBuffer);
+            std::string charBufferAsStr = charBuffer;
             fuzziedWindows = FuzzySearch(charBufferAsStr, windows);
             DrawMenu(fuzziedWindows, selected, menuStartPos, TRUE, totalWindowsNumber, inputBufferPosition, FALSE);
         }
@@ -269,15 +269,7 @@ int main(int argc, char* argv[]) {
     std::string helpCommand = "--help";
 
     printf("----------------------------------------------------------------------\n");
-    if (argc < 2 || argv[1] == helpCommand) {
-        // toggle window on top help
-        printf("Usage:\n  %s %s\n", argv[0], twotCommand.c_str());
-        return 1;
-    }
-
-    std::string command = argv[1];
-
-    if (command == twotCommand) {
+    if (argc < 2 || argv[1] == twotCommand) {
         std::vector<WindowInfo> windows;
         EnumWindows(EnumWindowsProc, reinterpret_cast<LPARAM>(&windows));
 
@@ -301,6 +293,12 @@ int main(int argc, char* argv[]) {
             printf("\nNo selected window\n");
             return 0;
         }
+    }
+
+    if (argv[1] == helpCommand) {
+        // toggle window on top help
+        printf("Usage:\n  %s %s\n", argv[0], twotCommand.c_str());
+        return 0;
     }
 
     return 0;
