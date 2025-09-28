@@ -202,12 +202,16 @@ std::optional<WindowInfo> PickWindow(const std::vector<WindowInfo>& windows) {
             c = _getch();
             switch (c) {
             case 72: // up arrow
-                selected = (selected + fuzziedWindows.size() - 1) % fuzziedWindows.size();
-                DrawMenu(fuzziedWindows, selected, menuStartPos, FALSE, totalWindowsNumber, inputBufferPosition, FALSE);
+                if (fuzziedWindows.size() > 0) {
+                    selected = (selected + fuzziedWindows.size() - 1) % fuzziedWindows.size();
+                    DrawMenu(fuzziedWindows, selected, menuStartPos, FALSE, totalWindowsNumber, inputBufferPosition, FALSE);
+                }
                 break;
             case 80: // down arrow
-                selected = (selected + 1) % fuzziedWindows.size();
-                DrawMenu(fuzziedWindows, selected, menuStartPos, FALSE, totalWindowsNumber, inputBufferPosition, FALSE);
+                if (fuzziedWindows.size() > 0) {
+                    selected = (selected + 1) % fuzziedWindows.size();
+                    DrawMenu(fuzziedWindows, selected, menuStartPos, FALSE, totalWindowsNumber, inputBufferPosition, FALSE);
+                }
                 break;
             }
         } else if (c == 13) { // enter
