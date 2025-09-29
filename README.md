@@ -1,5 +1,7 @@
 # TOPPER
 
+topper is a tiny C++ console application for Windows that lets you search, filter and interactively select any top-level window by title, then toggle its “always-on-top” (`WS_EX_TOPMOST`) state. It’s perfect for anyone who wants a quick keyboard-driven way to pin/unpin windows without touching the mouse or hunting through window menus.
+
 ## Requirements
 This program is intended to work only on the Windows Operating System.
 
@@ -38,4 +40,4 @@ topper --help
 ```
 
 ## Acknowledgements
-This project was inspired by [PowerToys' Window on Top Feature](https://github.com/microsoft/PowerToys)
+This project was inspired by [PowerToys' Window on Top Feature](https://learn.microsoft.com/en-us/windows/powertoys/always-on-top), and is meant to be a very lightweight TUI version.
